@@ -6,6 +6,7 @@ import { User } from '@/types';
 import { LogOut, Menu, Wallet, Settings as SettingsIcon } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { supabase } from '@/lib/supabase';
+import { NotificationBell } from '@/components/NotificationBell';
 
 export default function DashboardLayout({
     children,
@@ -103,6 +104,7 @@ export default function DashboardLayout({
                 <nav className="flex-1 p-4 space-y-2 overflow-y-auto no-scrollbar">
                     <NavLink href="/dashboard" icon="📊" label="Tổng quan" />
                     <NavLink href="/dashboard/transactions" icon="💳" label="Giao dịch" />
+                    <NavLink href="/dashboard/tasks" icon="📋" label="Công việc" />
                     {(user.role === 'admin' || user.role === 'manager') && (
                         <NavLink href="/dashboard/users" icon="👥" label="Người dùng" />
                     )}
@@ -114,6 +116,10 @@ export default function DashboardLayout({
 
                 {/* User Profile */}
                 <div className="p-4 border-t border-white/10 flex-shrink-0 bg-slate-800/50">
+                    <div className="flex items-center justify-between mb-3 px-2">
+                        <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Tài khoản</div>
+                        <NotificationBell currentUser={user} />
+                    </div>
                     <div
                         onClick={() => router.push('/dashboard/profile')}
                         className="flex items-center gap-3 mb-3 p-2 rounded-lg hover:bg-white/10 transition-colors cursor-pointer group"

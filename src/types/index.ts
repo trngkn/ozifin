@@ -66,9 +66,55 @@ export interface TransactionFilters {
   type?: string;
 }
 
+
 export interface CustomerSuggestion {
   name: string;
   bank: string;
   cardType: string;
   last4: string;
+}
+
+export type TaskStatus = 'todo' | 'in_progress' | 'review' | 'done';
+export type TaskPriority = 'low' | 'medium' | 'high' | 'urgent';
+
+export interface Task {
+  id: string;
+  title: string;
+  description: string; // HTML
+  status: TaskStatus;
+  priority: TaskPriority;
+  assignees: string[]; // usernames
+  tags: string[];
+  due_date?: string;
+  created_by: string; // username
+  created_at: string;
+  updated_at: string;
+  index: number;
+}
+
+export interface TaskComment {
+  id: string;
+  task_id: string;
+  user_id: string; // username
+  content: string;
+  created_at: string;
+}
+
+export interface TaskHistory {
+  id: string;
+  task_id: string;
+  user_id: string; // username
+  action: string;
+  details: string;
+  created_at: string;
+}
+
+export interface Notification {
+  id: string;
+  user_id: string;
+  title: string;
+  message: string;
+  link?: string;
+  is_read: boolean;
+  created_at: string;
 }
