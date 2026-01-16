@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { Transaction, User } from '@/types';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { Search, Filter, Download, Plus, Edit, Trash2, Eye } from 'lucide-react';
+import { Filter, Download, Plus, Edit, Trash2, Eye } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function TransactionsPage() {
@@ -17,6 +17,8 @@ export default function TransactionsPage() {
     const [showFilters, setShowFilters] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const pageSize = 10;
+    const [users, setUsers] = useState<User[]>([]);
+    const [agencies, setAgencies] = useState<string[]>([]);
 
     // Filters
     const [filters, setFilters] = useState({
@@ -24,6 +26,8 @@ export default function TransactionsPage() {
         endDate: '',
         customer: '',
         type: '',
+        agency: '',
+        sale: '',
     });
 
     useEffect(() => {
@@ -32,12 +36,32 @@ export default function TransactionsPage() {
             const parsedUser = JSON.parse(userData);
             setUser(parsedUser);
             loadTransactions(parsedUser);
+            loadFilterData();
         }
     }, []);
 
     useEffect(() => {
-        applyFilters();
+        if (transactions.length > 0) {
+            applyFilters();
+        }
     }, [transactions, filters]);
+
+    const loadFilterData = async () => {
+        // Load users (sales)
+        const { data: userData } = await supabase.from('users').select('*').order('display_name');
+        if (userData) setUsers(userData);
+
+        // Load distinct agencies from transactions is tricky in Supabase without proper distinct query or RPC
+        // For now, we'll extract unique agencies from the loaded transactions in loadTransactions
+        // But since loadTransactions loads all for now, we can extract from there or do a separate query.
+        // Let's rely on extracting from the fetched transactions for simplicity and performance on client sid
+        // if dataset is not huge. efficient way:
+        const { data: agencyData } = await supabase.from('transactions').select('agency');
+        if (agencyData) {
+            const uniqueAgencies = Array.from(new Set(agencyData.map(t => t.agency).filter(Boolean)));
+            setAgencies(uniqueAgencies);
+        }
+    };
 
     const loadTransactions = async (currentUser: User) => {
         setLoading(true);
@@ -47,14 +71,17 @@ export default function TransactionsPage() {
                 .select('*')
                 .order('timestamp', { ascending: false });
 
-            if (currentUser.role !== 'admin' && currentUser.role !== 'manager') {
-                query = query.eq('created_by', currentUser.username);
-            }
-
             const { data, error } = await query;
             if (error) throw error;
 
             setTransactions(data || []);
+
+            // Extract unique agencies if not loaded separately
+            if (data) {
+                const uniqueAgencies = Array.from(new Set(data.map(t => t.agency).filter(Boolean)));
+                setAgencies(uniqueAgencies);
+            }
+
         } catch (error) {
             console.error('Error loading transactions:', error);
             toast.error('Lỗi khi tải dữ liệu');
@@ -76,12 +103,20 @@ export default function TransactionsPage() {
         }
         if (filters.customer) {
             filtered = filtered.filter((t) =>
-                t.customer.toLowerCase().includes(filters.customer.toLowerCase()) ||
-                t.sale.toLowerCase().includes(filters.customer.toLowerCase())
+                t.customer.toLowerCase().includes(filters.customer.toLowerCase())
             );
         }
         if (filters.type) {
             filtered = filtered.filter((t) => t.type === filters.type);
+        }
+        if (filters.agency) {
+            filtered = filtered.filter((t) => t.agency === filters.agency);
+        }
+        if (filters.sale) {
+            // sale filter can be username or display_name, let's assume it matches transaction's sale field which is usually display_name or username.
+            // Looking at previous code, t.sale seems to be the sale's name.
+            // We'll match against the selected user's username or display_name.
+            filtered = filtered.filter((t) => t.created_by === filters.sale);
         }
 
         setFilteredTransactions(filtered);
@@ -210,6 +245,36 @@ export default function TransactionsPage() {
                                 <option value="Rút">Rút</option>
                                 <option value="Đáo">Đáo</option>
                                 <option value="Rút+Đáo">Rút+Đáo</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-2">Đại lý</label>
+                            <select
+                                value={filters.agency}
+                                onChange={(e) => setFilters({ ...filters, agency: e.target.value })}
+                                className="w-full px-4 py-2 rounded-xl border-2 border-gray-200 focus:border-indigo-500 outline-none"
+                            >
+                                <option value="">Tất cả</option>
+                                {agencies.map((agency) => (
+                                    <option key={agency} value={agency}>
+                                        {agency}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-2">Người tạo (Sale)</label>
+                            <select
+                                value={filters.sale}
+                                onChange={(e) => setFilters({ ...filters, sale: e.target.value })}
+                                className="w-full px-4 py-2 rounded-xl border-2 border-gray-200 focus:border-indigo-500 outline-none"
+                            >
+                                <option value="">Tất cả</option>
+                                {users.map((u) => (
+                                    <option key={u.id} value={u.username}>
+                                        {u.display_name}
+                                    </option>
+                                ))}
                             </select>
                         </div>
                     </div>

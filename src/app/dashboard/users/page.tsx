@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { User } from '@/types';
 import { formatDate } from '@/lib/utils';
-import { Plus, Search, Trash2, UserPlus } from 'lucide-react';
+import { Plus, Search, Trash2, UserPlus, Shield } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function UsersPage() {
@@ -12,6 +12,7 @@ export default function UsersPage() {
     const [loading, setLoading] = useState(true);
     const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [showAddModal, setShowAddModal] = useState(false);
+    const [editingUser, setEditingUser] = useState<User | null>(null);
     const [newUser, setNewUser] = useState({
         username: '',
         password: '',
@@ -82,6 +83,27 @@ export default function UsersPage() {
         } catch (error: any) {
             console.error('Error creating user:', error);
             toast.error(error.message || 'Lỗi khi tạo người dùng');
+        }
+    };
+
+    const handleUpdateRole = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!editingUser) return;
+
+        try {
+            const { error } = await supabase
+                .from('users')
+                .update({ role: editingUser.role })
+                .eq('id', editingUser.id);
+
+            if (error) throw error;
+
+            toast.success(`Đã cập nhật vai trò cho ${editingUser.display_name}`);
+            setEditingUser(null);
+            loadUsers();
+        } catch (error: any) {
+            console.error('Error updating role:', error);
+            toast.error('Lỗi khi cập nhật vai trò');
         }
     };
 
@@ -183,14 +205,23 @@ export default function UsersPage() {
                                     </td>
                                     <td className="px-6 py-4 text-xs text-gray-500">{formatDate(user.created_at)}</td>
                                     <td className="px-6 py-4 text-right">
-                                        <button
-                                            onClick={() => handleDeleteUser(user)}
-                                            className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                            title="Xóa"
-                                            disabled={user.username === 'admin'}
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
+                                        <div className="flex justify-end gap-2">
+                                            <button
+                                                onClick={() => setEditingUser(user)}
+                                                className="p-2 text-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                                                title="Phân quyền"
+                                            >
+                                                <Shield className="w-4 h-4" />
+                                            </button>
+                                            <button
+                                                onClick={() => handleDeleteUser(user)}
+                                                className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                title="Xóa"
+                                                disabled={user.username === 'admin'}
+                                            >
+                                                <Trash2 className="w-4 h-4" />
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
@@ -260,6 +291,45 @@ export default function UsersPage() {
                                 className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-colors mt-4"
                             >
                                 Tạo người dùng
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Edit Role Modal */}
+            {editingUser && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                    <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm animate-in fade-in zoom-in duration-200">
+                        <div className="p-6 border-b border-gray-100 flex justify-between items-center">
+                            <h2 className="text-xl font-bold">Phân Quyền User</h2>
+                            <button onClick={() => setEditingUser(null)} className="text-gray-400 hover:text-gray-600">
+                                <Plus className="w-6 h-6 rotate-45" />
+                            </button>
+                        </div>
+                        <form onSubmit={handleUpdateRole} className="p-6 space-y-4">
+                            <div className="text-center mb-4">
+                                <div className="text-gray-500 text-sm">Đang chỉnh sửa cho</div>
+                                <div className="text-lg font-bold text-gray-800">{editingUser.display_name}</div>
+                                <div className="text-xs text-gray-400">@{editingUser.username}</div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-2">Chọn vai trò mới</label>
+                                <select
+                                    value={editingUser.role}
+                                    onChange={e => setEditingUser({ ...editingUser, role: e.target.value as any })}
+                                    className="w-full px-4 py-2 rounded-xl border-2 border-gray-200 focus:border-indigo-500 outline-none"
+                                >
+                                    <option value="sale">Sale (Nhân viên)</option>
+                                    <option value="manager">Manager (Quản lý)</option>
+                                    <option value="admin">Admin (Quản trị)</option>
+                                </select>
+                            </div>
+                            <button
+                                type="submit"
+                                className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition-colors mt-2"
+                            >
+                                Cập nhật vai trò
                             </button>
                         </form>
                     </div>

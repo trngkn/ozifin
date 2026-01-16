@@ -46,15 +46,36 @@ export default function DashboardPage() {
     const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
 
+    const [users, setUsers] = useState<User[]>([]);
+    const [filterUserId, setFilterUserId] = useState<string>('all');
+
     useEffect(() => {
         const userData = localStorage.getItem('ozifin_user');
         if (userData) {
-            setUser(JSON.parse(userData));
-            loadDashboardData(JSON.parse(userData));
+            const currentUser = JSON.parse(userData);
+            setUser(currentUser);
+            loadDashboardData(currentUser, 'all');
+
+            // Load users list for admin/manager
+            if (currentUser.role === 'admin' || currentUser.role === 'manager') {
+                loadUsers();
+            }
         }
     }, [selectedMonth, selectedYear]);
 
-    const loadDashboardData = async (currentUser: User) => {
+    const loadUsers = async () => {
+        const { data } = await supabase.from('users').select('*').order('display_name');
+        if (data) setUsers(data);
+    };
+
+    const handleUserFilterChange = (userId: string) => {
+        setFilterUserId(userId);
+        if (user) {
+            loadDashboardData(user, userId);
+        }
+    };
+
+    const loadDashboardData = async (currentUser: User, filterId: string) => {
         setLoading(true);
         try {
             // Build query
@@ -63,10 +84,18 @@ export default function DashboardPage() {
                 .select('*')
                 .order('timestamp', { ascending: false });
 
-            // Filter by user role
-            // Filter by user role
+            // Stats/Charts Filter Logic:
+            // 1. Sale: Only see own data
+            // 2. Admin/Manager: See all by default, or specific user if selected
             if (currentUser.role !== 'admin' && currentUser.role !== 'manager') {
                 query = query.eq('created_by', currentUser.username);
+            } else if (filterId !== 'all') {
+                // Admin selecting a specific user
+                // Need to find username from id
+                const selectedUser = users.find(u => u.id === filterId);
+                if (selectedUser) {
+                    query = query.eq('created_by', selectedUser.username);
+                }
             }
 
             // Filter by date
@@ -196,6 +225,20 @@ export default function DashboardPage() {
                     <p className="text-gray-500">Tổng quan hoạt động kinh doanh</p>
                 </div>
                 <div className="flex gap-2">
+                    {(user?.role === 'admin' || user?.role === 'manager') && (
+                        <select
+                            value={filterUserId}
+                            onChange={(e) => handleUserFilterChange(e.target.value)}
+                            className="px-4 py-2 rounded-xl border-2 border-gray-200 focus:border-indigo-500 outline-none font-medium text-sm max-w-[150px]"
+                        >
+                            <option value="all">Tất cả nhân viên</option>
+                            {users.map((u) => (
+                                <option key={u.id} value={u.id}>
+                                    {u.display_name}
+                                </option>
+                            ))}
+                        </select>
+                    )}
                     <select
                         value={selectedMonth}
                         onChange={(e) => setSelectedMonth(Number(e.target.value))}
