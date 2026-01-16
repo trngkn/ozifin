@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { uploadToImgBB } from '@/lib/imgbb';
@@ -61,6 +61,61 @@ export default function TransactionFormPage() {
         withdraw: false,
         invoice: false,
     });
+
+    // Customer Suggestions
+    const [suggestions, setSuggestions] = useState<{ customer: string, bank: string, card_type: string, last4: string }[]>([]);
+    const [showSuggestions, setShowSuggestions] = useState(false);
+    const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const handleCustomerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+        setForm((prev) => ({ ...prev, customer: value }));
+
+        if (searchTimeout.current) clearTimeout(searchTimeout.current);
+
+        if (!value.trim()) {
+            setSuggestions([]);
+            setShowSuggestions(false);
+            return;
+        }
+
+        searchTimeout.current = setTimeout(async () => {
+            try {
+                const { data } = await supabase
+                    .from('transactions')
+                    .select('customer, bank, card_type, last4')
+                    .ilike('customer', `%${value}%`)
+                    .order('timestamp', { ascending: false })
+                    .limit(50);
+
+                if (data) {
+                    const unique = new Map();
+                    data.forEach((item: any) => {
+                        const key = `${item.customer}-${item.bank}-${item.card_type}-${item.last4}`;
+                        if (!unique.has(key)) {
+                            unique.set(key, item);
+                        }
+                    });
+
+                    setSuggestions(Array.from(unique.values()));
+                    setShowSuggestions(true);
+                }
+            } catch (error) {
+                console.error('Error fetching suggestions:', error);
+            }
+        }, 300);
+    };
+
+    const selectSuggestion = (item: any) => {
+        setForm((prev) => ({
+            ...prev,
+            customer: item.customer,
+            bank: item.bank,
+            card_type: item.card_type,
+            last4: item.last4,
+        }));
+        setShowSuggestions(false);
+    };
 
     useEffect(() => {
         const userData = localStorage.getItem('ozifin_user');
@@ -351,16 +406,41 @@ export default function TransactionFormPage() {
                         💳 Thông tin Khách & Thẻ
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                        <div className="lg:col-span-2">
+                        <div className="lg:col-span-2 relative">
                             <label className="block text-sm font-bold text-gray-700 mb-2">Tên Khách Hàng *</label>
                             <input
                                 type="text"
                                 value={form.customer}
-                                onChange={(e) => setForm({ ...form, customer: e.target.value })}
+                                onChange={handleCustomerChange}
+                                onFocus={() => {
+                                    if (form.customer && suggestions.length > 0) setShowSuggestions(true);
+                                }}
+                                onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
                                 className="w-full px-4 py-3 rounded-xl border-2 border-gray-200 focus:border-indigo-500 outline-none disabled:bg-gray-50 disabled:text-gray-500"
                                 required
                                 disabled={isViewMode}
+                                autoComplete="off"
+                                placeholder="Nhập tên khách..."
                             />
+                            {/* Suggestions Dropdown */}
+                            {showSuggestions && suggestions.length > 0 && (
+                                <div className="absolute top-full left-0 right-0 z-50 bg-white rounded-xl shadow-xl border border-gray-100 mt-1 max-h-60 overflow-y-auto animate-in fade-in zoom-in-95 duration-200">
+                                    {suggestions.map((item, idx) => (
+                                        <div
+                                            key={idx}
+                                            onClick={() => selectSuggestion(item)}
+                                            className="p-3 hover:bg-indigo-50 cursor-pointer border-b border-gray-50 last:border-0 transition-colors group"
+                                        >
+                                            <div className="font-bold text-gray-800 group-hover:text-indigo-700">{item.customer}</div>
+                                            <div className="text-xs text-gray-500 flex gap-2 mt-1">
+                                                <span className="bg-gray-100 px-2 py-0.5 rounded text-gray-600 border border-gray-200">{item.bank}</span>
+                                                <span className="bg-gray-100 px-2 py-0.5 rounded text-gray-600 border border-gray-200">{item.card_type}</span>
+                                                <span className="font-mono text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">•••{item.last4}</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-2">Ngân Hàng *</label>
