@@ -88,7 +88,7 @@ export default function DashboardLayout({
                     }`}
             >
                 {/* Logo */}
-                <div className="p-6 border-b border-white/10 flex-shrink-0">
+                <div className="p-6 border-b border-white/10 flex-shrink-0 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/30">
                             <Wallet className="w-6 h-6 text-white" />
@@ -98,6 +98,7 @@ export default function DashboardLayout({
                             <p className="text-xs text-slate-400 font-medium truncate max-w-[150px]">{config.slogan}</p>
                         </div>
                     </div>
+                    <NotificationBell currentUser={user} />
                 </div>
 
                 {/* Navigation */}
@@ -118,7 +119,6 @@ export default function DashboardLayout({
                 <div className="p-4 border-t border-white/10 flex-shrink-0 bg-slate-800/50">
                     <div className="flex items-center justify-between mb-3 px-2">
                         <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Tài khoản</div>
-                        <NotificationBell currentUser={user} />
                     </div>
                     <div
                         onClick={() => router.push('/dashboard/profile')}
