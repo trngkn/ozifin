@@ -155,9 +155,7 @@ export default function LoginPage() {
                             </button>
                         </form>
 
-                        <div className="mt-6 text-center text-sm text-gray-500">
-                            <p>Demo: admin / admin123</p>
-                        </div>
+
                     </div>
                 </div>
 
